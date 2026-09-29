@@ -1,0 +1,10 @@
+{
+  "files.associations": {
+    "*.html": "jinja-html",
+    "*.css.jinja": "jinja-css"
+  },
+  "emmet.includeLanguages": {
+    "jinja-html": "html",
+    "jinja-css": "css"
+  }
+}

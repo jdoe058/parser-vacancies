@@ -1,10 +1,23 @@
+# Окружение и кеш
 .venv/
 __pycache__/
 *.pyc
+.env
+
+# VS Code
+.vscode/*.log
+
+# Данные парсинга (артефакты, не исходники)
 data/
 *.csv
-*.html
-.env
-.vscode/*.log
-data/
+
+# Скачанные HTML-страницы для отладки — только в корне и data/
+/*.html
+/data/*.html
+
+# Результаты генерации PDF
 output/
+*.pdf
+
+# macOS
+.DS_Store

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+</head>
+<body>
+
+<section class="cover">
+    <h1>{{ title }}</h1>
+    <h2>{{ subtitle }}</h2>
+    <p class="description">{{ description }}</p>
+    <p class="meta">
+        Всего вакансий: <b>{{ total }}</b>.
+        Источник: {{ config.common.source }}.
+        Дата формирования: {{ date }}.
+    </p>
+</section>
+
+<section class="data">
+    <table>
+        <colgroup>
+            {% for col in columns %}
+            <col style="width: {{ col.width }}">
+            {% endfor %}
+        </colgroup>
+        <thead>
+            <tr>
+                {% for col in columns %}
+                <th class="col-{{ col.key }}">{{ col.title }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for group in groups %}
+            <tr class="area-row">
+                <td colspan="{{ columns|length }}">{{ group.area }}</td>
+            </tr>
+            {% for row in group.rows %}
+            <tr{% if row._alt %} class="alt"{% endif %}>
+                {% for cell in row.cells %}
+                <td class="col-{{ cell.cls }}">{{ cell.value }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+</body>
+</html>
