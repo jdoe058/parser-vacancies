@@ -31,35 +31,24 @@ def read_rows() -> list[dict[str, Any]]:
 
 # ---------- классификация ----------
 
-def classify(row: dict[str, Any]) -> str | None:
+def row_matches(row: dict[str, Any], include: dict[str, Any]) -> bool:
+    """Проверяет, попадает ли вакансия в документ по правилам из config."""
     spec = (row.get("speciality") or "").strip().lower()
-    title = (row.get("title") or "").strip().lower()
+    title = (row.get("title") or "").strip()
 
-    if spec == "врач":
-        return "vuz"
-    if spec in ("средний медицинский персонал", "младший медицинский персонал"):
-        return "suz"
-    if spec in ("административный персонал", "прочие"):
-        return None
-    if re.match(r"^(врач|заведующ)", title) or " врач" in title:
-        return "vuz"
-    if any(k in title for k in ("медицинская сестра", "фельдшер", "акушерк",
-                                 "санитарк", "санитар ", "лаборант", "медсестра")):
-        return "suz"
-    return None
+    specs = [s.lower() for s in (include.get("specialities") or [])]
+    if specs and spec in specs:
+        return True
 
+    for pattern in (include.get("title_patterns") or []):
+        try:
+            if re.search(pattern, title, re.IGNORECASE):
+                return True
+        except re.error:
+            # не падаем из-за кривого регекса в конфиге — просто игнорируем его
+            continue
 
-def is_nurse(row: dict[str, Any]) -> bool:
-    """Медсёстры попадают и в ВУЗ, и в СУЗ."""
-    title = (row.get("title") or "").strip().lower()
-    return any(k in title for k in (
-        "медицинская сестра",
-        "медсестра",
-        "медсестры",
-        "старшая медсестра",
-        "главная медсестра",
-    ))
-
+    return False
 
 # ---------- подготовка данных для шаблона ----------
 
@@ -169,14 +158,19 @@ def main() -> None:
     config = load_config()
     rows = read_rows()
 
-    vuz_rows = [r for r in rows if classify(r) == "vuz" or is_nurse(r)]
-    suz_rows = [r for r in rows if classify(r) == "suz"]
+    for key, doc in config.items():
+        if key == "common":
+            continue
 
-    p1 = render_pdf(vuz_rows, "vuz", config)
-    p2 = render_pdf(suz_rows, "suz", config)
+        include = doc.get("include", {})
+        matched = [r for r in rows if row_matches(r, include)]
 
-    print(f"ВУЗ: {len(vuz_rows)} вакансий -> {p1}")
-    print(f"СУЗ: {len(suz_rows)} вакансий -> {p2}")
+        if not matched:
+            print(f"[{key}] нет вакансий по правилам из config — пропускаю")
+            continue
+
+        out = render_pdf(matched, key, config)
+        print(f"[{key}] {len(matched)} вакансий -> {out}")
 
 
 if __name__ == "__main__":
