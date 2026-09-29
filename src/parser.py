@@ -10,12 +10,17 @@ from typing import Any
 import requests
 from bs4 import BeautifulSoup
 
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
+
 BASE = "https://xn--80aackbd0bcms3a1b4gta.xn--p1ai"
 LIST_PAGE = f"{BASE}/vacancy"
 API_URL = f"{BASE}/api/vacancy/list"
 
 DATA_DIR = Path("data")
 CSV_PATH = DATA_DIR / "vacancies.csv"
+XLSX_PATH = DATA_DIR / "vacancies.xlsx"
 PROGRESS_PATH = DATA_DIR / "progress.json"
 
 HEADERS = {
@@ -190,6 +195,55 @@ def save_csv(rows: list[dict[str, Any]]) -> None:
         w.writerows(rows)
     tmp.replace(CSV_PATH)
 
+XLSX_COLUMN_WIDTHS = {
+    "url": 55, "title": 40, "speciality": 25, "organization": 40,
+    "area": 25, "work_mode": 25, "vacancy_part": 10, "qty": 8,
+    "updated": 14, "mentors": 10, "housing": 10, "social_land": 10,
+    "social_communal": 12, "zemskii": 10, "social_rent": 10,
+    "social_mortgage": 10, "social_deposit": 10,
+}
+
+
+def save_xlsx(rows: list[dict[str, Any]]) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    wb = Workbook()
+    ws = wb.active
+    if ws is None:
+        # теоретически невозможно у свежей книги, но Pylance требует проверки
+        ws = wb.create_sheet("Вакансии")
+    ws.title = "Вакансии"
+
+    # Шапка
+    ws.append(FIELDS)
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="1A3A5C")
+    for i, col in enumerate(FIELDS, 1):
+        cell = ws.cell(row=1, column=i)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws.column_dimensions[get_column_letter(i)].width = \
+            XLSX_COLUMN_WIDTHS.get(col, 15)
+
+    # Данные
+    for r in rows:
+        ws.append([r.get(f, "") for f in FIELDS])
+
+    # Закрепление шапки и автофильтр
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
+
+    tmp = XLSX_PATH.with_suffix(".xlsx.tmp")
+    wb.save(tmp)
+    try:
+        tmp.replace(XLSX_PATH)
+    except PermissionError:
+        # файл открыт в Excel — сохраняем с другим именем
+        fallback = XLSX_PATH.with_name(XLSX_PATH.stem + "_new.xlsx")
+        wb.save(fallback)
+        log.warning("vacancies.xlsx занят (открыт в Excel?). "
+                    "Сохранено как %s", fallback.name)
 
 def load_progress() -> dict[str, Any]:
     if PROGRESS_PATH.exists():
@@ -266,6 +320,7 @@ def scrape_all(page_size: int = PAGE_SIZE) -> list[dict[str, Any]]:
             new_on_page += 1
 
         save_csv(rows)
+        save_xlsx(rows)
         save_progress(next_page=page + 1, total_pages=total_pages)
         log.info("страница %s/%s: новых %s, всего %s",
                  page, total_pages, new_on_page, len(rows))
@@ -282,6 +337,7 @@ def scrape_all(page_size: int = PAGE_SIZE) -> list[dict[str, Any]]:
         time.sleep(2.0 + random.uniform(0, 1.5))
 
     save_csv(rows)
+    save_xlsx(rows)
     return rows
 
 
